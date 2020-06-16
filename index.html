@@ -20,7 +20,7 @@
   <script>
     var buttonOut = document.getElementsByClassName('leaflet-control-zoom-out')
     var buttonIn = document.getElementsByClassName('leaflet-control-zoom-in')
-
+    let arr = [32100, 20900, 20123]
     // defining the map
     var map = L.map('mapid', {
       zoomControl: false, 
@@ -28,38 +28,47 @@
       zoomDelta: 1,
     }).setView([42.395062, 13.004222], zoom = 6);
 
-    map.options.minZoom = 6;
+    map.options.minZoom = 2;
     map.options.maxZoom = 8;
+
 
     L.control.zoom({
       position:'topright'
     }).addTo(map);
 
-
-    var layer = L.geoJSON(regions, {
-      onEachFeature: function(feature, layer) {
-        layer.on({
-          click: clickedgeojson
-        });
+    const getData = async(arr) => {
+      const geoJson = {
+        "type": "FeatureCollection",
+        "features": []
       }
-    })
+      for(let i = 0; i < arr.length; i++){
+        let resp = await fetch(`https://nominatim.openstreetmap.org/search?format=geojson&postalcode=${arr[i]}&country=Italy&limit=1`)
+        const coordinates = await resp.json()
+        geoJson["features"].push(coordinates['features'][0])
+      }
+      return geoJson
+    }
 
-    function clickedgeojson(e) {
-      L.DomEvent.stopPropagation(e);
-      alert('click on json');
-    };
+    const initializeMap = async() => {
+      const geoJson = await getData(arr)
+      var myRenderer = L.canvas({ padding: 0.5 });
+      console.log(geoJson["features"])
+      console.log(geoJson["features"][0]["bbox"])
+      const bounds = [[geoJson["features"][0]["bbox"][0], geoJson["features"][0]["bbox"][1]], [geoJson["features"][0]["bbox"][2], geoJson["features"][0]["bbox"][3]]]
+      console.log(bounds)
+      var layer = L.rectangle(bounds, {color: "#ff7800", weight: 1}).addTo(map)
+      map.fitBounds(bounds)
+    }
 
-    layer.addTo(map)
+    initializeMap()
 
-    map.on('click', () => {
-      alert('hello')
-    })
+    // initializeMap()
 
     // changing GEOjson while zooming
     map.on('zoomend', () => {
       layer.clearLayers()
       var currentZoom = map.getZoom()
-      if(currentZoom == 6) {
+      if(currentZoom <= 6) {
         layer.addData(regions);
       } else if(currentZoom == 7) {
         layer.addData(subregions);
@@ -67,12 +76,6 @@
         layer.addData(italy)
       }
     })
-
-    //setting map layout
-    // var OpenStreetMap_Mapnik = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    //   maxZoom: 12,
-    //   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    // }).addTo(map);
 
     L.tileLayer(
     'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
