@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaflet GeoJSON Example</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.1/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+  integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+  crossorigin=""></script>
+  <link rel="stylesheet" href="index.css" />
+</head>
+
+<body>
+  <div id="mapid"></div>
+
+  <script type='text/javascript' src="italy.js"></script>
+  <script type='text/javascript' src="italy_subregions.js"></script>
+  <script type='text/javascript' src="italy_regions.js"></script>
+
+  <script>
+    var buttonOut = document.getElementsByClassName('leaflet-control-zoom-out')
+    var buttonIn = document.getElementsByClassName('leaflet-control-zoom-in')
+
+    // defining the map
+    var map = L.map('mapid', {
+      zoomControl: false, 
+      scrollWheelZoom: false,
+      zoomDelta: 1,
+    }).setView([42.395062, 13.004222], zoom = 6);
+
+    map.options.minZoom = 6;
+    map.options.maxZoom = 8;
+
+    L.control.zoom({
+      position:'topright'
+    }).addTo(map);
+
+
+    var layer = L.geoJSON(regions, {
+      onEachFeature: function(feature, layer) {
+        layer.on({
+          click: clickedgeojson
+        });
+      }
+    })
+
+    function clickedgeojson(e) {
+      L.DomEvent.stopPropagation(e);
+      alert('click on json');
+    };
+
+    layer.addTo(map)
+
+    map.on('click', () => {
+      alert('hello')
+    })
+
+    // changing GEOjson while zooming
+    map.on('zoomend', () => {
+      layer.clearLayers()
+      var currentZoom = map.getZoom()
+      if(currentZoom == 6) {
+        layer.addData(regions);
+      } else if(currentZoom == 7) {
+        layer.addData(subregions);
+      } else if(currentZoom > 7) {
+        layer.addData(italy)
+      }
+    })
+
+    //setting map layout
+    // var OpenStreetMap_Mapnik = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    //   maxZoom: 12,
+    //   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    // }).addTo(map);
+
+    L.tileLayer(
+    'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
+    {maxZoom: 18}).addTo(map);
+
+  </script>
+</body>
+</html>
