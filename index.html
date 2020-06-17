@@ -4,6 +4,10 @@
   <title>Leaflet GeoJSON Example</title>
   <meta charset="utf-8" />
   <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.1/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+   integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+   crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
   integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
   crossorigin=""></script>
@@ -11,75 +15,134 @@
 </head>
 
 <body>
-  <div id="mapid"></div>
+    <div id="main-map-wrapper">
+      <div id='info-div'>
+        <h5 id="score"> Score: </h4>
+        <h5 id="region"> Region: </h5>
+      </div>
+      <!-- <div class='btn-map-div'>
+        <button id='region-btn'>
+          Region
+        </button>
+        <button id='province-btn'>
+          Province
+        </button>
+        <button id='city-btn'>
+          City
+        </button>
+      </div> -->
+      <div id="mapid"></div>
+    </div>
 
-  <script type='text/javascript' src="italy.js"></script>
-  <script type='text/javascript' src="italy_subregions.js"></script>
+  <script type='text/javascript' src="italy_provinces.js"></script>
   <script type='text/javascript' src="italy_regions.js"></script>
+  <script type='text/javascript' src="italy_cities.js"></script>
 
   <script>
-    var buttonOut = document.getElementsByClassName('leaflet-control-zoom-out')
-    var buttonIn = document.getElementsByClassName('leaflet-control-zoom-in')
-    let arr = [32100, 20900, 20123]
+
     // defining the map
-    var map = L.map('mapid', {
+    const map = L.map('mapid', {
       zoomControl: false, 
       scrollWheelZoom: false,
-      zoomDelta: 1,
-    }).setView([42.395062, 13.004222], zoom = 6);
+      zoomDelta: 2,
+    }).setView([42.395062, 13.004222], zoom = 5);
 
-    map.options.minZoom = 2;
-    map.options.maxZoom = 8;
-
-
-    L.control.zoom({
-      position:'topright'
-    }).addTo(map);
-
-    const getData = async(arr) => {
-      const geoJson = {
-        "type": "FeatureCollection",
-        "features": []
-      }
-      for(let i = 0; i < arr.length; i++){
-        let resp = await fetch(`https://nominatim.openstreetmap.org/search?format=geojson&postalcode=${arr[i]}&country=Italy&limit=1`)
-        const coordinates = await resp.json()
-        geoJson["features"].push(coordinates['features'][0])
-      }
-      return geoJson
-    }
-
-    const initializeMap = async() => {
-      const geoJson = await getData(arr)
-      var myRenderer = L.canvas({ padding: 0.5 });
-      console.log(geoJson["features"])
-      console.log(geoJson["features"][0]["bbox"])
-      const bounds = [[geoJson["features"][0]["bbox"][0], geoJson["features"][0]["bbox"][1]], [geoJson["features"][0]["bbox"][2], geoJson["features"][0]["bbox"][3]]]
-      console.log(bounds)
-      var layer = L.rectangle(bounds, {color: "#ff7800", weight: 1}).addTo(map)
-      map.fitBounds(bounds)
-    }
-
-    initializeMap()
-
-    // initializeMap()
-
-    // changing GEOjson while zooming
-    map.on('zoomend', () => {
-      layer.clearLayers()
-      var currentZoom = map.getZoom()
-      if(currentZoom <= 6) {
-        layer.addData(regions);
-      } else if(currentZoom == 7) {
-        layer.addData(subregions);
-      } else if(currentZoom > 7) {
-        layer.addData(italy)
-      }
-    })
+    map.dragging.disable();
+    map.touchZoom.disable();
+    map.doubleClickZoom.disable();
+    map.scrollWheelZoom.disable();
+    map.boxZoom.disable();
+    map.keyboard.disable();
 
     L.tileLayer(
     'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
-    {maxZoom: 18}).addTo(map);
+    {maxZoom: 11}).addTo(map);
+
+    // func to assign colors based on score
+    const colorBasedOnScore = (score) => {
+        if(score <= 2){
+          return '#92D050';
+        } else if (score > 2 && score <= 3) {
+          return '#FFFF00';
+        } else if (score > 3 && score <=5) {
+          return '#FFC100'; 
+        } else {
+          return '#F60000' 
+        }
+    }
+
+    // clear map to show new regions/provinces/cities
+    const clearMap = () => {
+      for(i in map._layers) {
+        if(map._layers[i]._path != undefined) {
+          try {
+            map.removeLayer(map._layers[i]);
+          }
+          catch(e) {
+            console.log("problem with " + e + map._layers[i]);
+          }
+        }
+      }
+    }
+
+    // onclick behavior for bubbles
+    const displayDataAfterClick = (e) => {
+      document.getElementById('region').innerText = "Region: " +  e.target.options.name
+      document.getElementById('score').innerText = "Score: " +  e.target.options.score
+    }
+
+    // drawing circles
+    const applyLayer = (arr) => {
+      for(var i = 0; i < arr.length; i++) {
+        const circle = L.circle(arr[i].coordinates, {  
+          color: colorBasedOnScore(arr[i].score),
+          fillColor: colorBasedOnScore(arr[i].score),
+          fillOpacity: 0.5,
+          radius: arr[i].radius,
+          score: arr[i].score,
+          name: arr[i].name
+        }).addTo(map)
+          .on("click", displayDataAfterClick)
+          .on("dblclick", (e) => {
+            var currentZoom = map.getZoom()
+            if (currentZoom == 11) {
+              map.setView([42.395062, 13.004222], zoom = 5);
+            } else {
+              map.setView([e.latlng.lat, e.latlng.lng], zoom = 11);
+            }
+          }
+        )
+      }
+    }    
+
+    const l = L.geoJSON(regions, {
+      onEachFeature: (feature, layer) => {
+        layer.on({
+          click: () => {
+            document.getElementById('region').innerText = "Region: " +  feature.properties.name
+          },
+          dblclick: (e) => {
+            map.setView([e.latlng.lat, e.latlng.lng], zoom = 8);
+          }
+        })
+      }
+    }).addTo(map)
+
+    // changing bubbles after zooming
+    map.on('zoomend', () => {
+      var currentZoom = map.getZoom()
+      console.log(currentZoom)
+      if(currentZoom == 5) {
+        clearMap() 
+        L.geoJSON(regions).addTo(map)
+      } else if(currentZoom == 8) {
+        l.clearLayers()
+        applyLayer(provinces['all'])
+      } else if(currentZoom == 11) {
+        clearMap() 
+        applyLayer(cities['all'])
+      }
+    })
 
   </script>
 </body>
